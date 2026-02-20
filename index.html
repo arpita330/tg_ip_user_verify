@@ -2,45 +2,75 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Network Verification</title>
-
+<title>Secure Network Verification</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <style>
 body{
     margin:0;
+    background: radial-gradient(circle at top,#0f172a,#020617);
     font-family:Arial;
-    background:#0b1226;
     color:white;
     display:flex;
     justify-content:center;
     align-items:center;
     height:100vh;
 }
+
 .card{
     width:90%;
     max-width:400px;
-    background:#111b3a;
-    padding:30px;
+    background:rgba(255,255,255,0.05);
     border-radius:20px;
+    padding:30px;
     text-align:center;
+    backdrop-filter:blur(15px);
+    box-shadow:0 0 40px rgba(0,0,0,0.6);
 }
-.progress{
+
+.circle{
+    width:130px;
+    height:130px;
+    border-radius:50%;
+    border:4px solid #3b82f6;
+    margin:0 auto 20px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    animation: glow 1.5s infinite;
+}
+
+@keyframes glow{
+    0%{box-shadow:0 0 10px #3b82f6;}
+    50%{box-shadow:0 0 30px #3b82f6;}
+    100%{box-shadow:0 0 10px #3b82f6;}
+}
+
+.progress-bar{
+    width:100%;
     height:6px;
-    background:#2e5bff;
-    width:0%;
+    background:#1e293b;
+    border-radius:5px;
+    overflow:hidden;
     margin-top:20px;
-    transition:0.4s;
 }
-.button{
+
+.progress{
+    height:100%;
+    width:0%;
+    background:#3b82f6;
+    transition:width 0.3s;
+}
+
+button{
     margin-top:25px;
     padding:12px;
-    background:#2e5bff;
+    width:100%;
     border:none;
     border-radius:10px;
+    background:#3b82f6;
     color:white;
-    width:100%;
+    font-size:15px;
     display:none;
 }
 </style>
@@ -49,72 +79,84 @@ body{
 <body>
 
 <div class="card">
-    <h2 id="title">Verifying Network...</h2>
-    <div style="background:#222;height:6px;border-radius:5px;">
+    <div class="circle" id="circle">🔍</div>
+    <h2 id="title">Scanning Network</h2>
+    <p id="status">Connecting to secure server...</p>
+
+    <div class="progress-bar">
         <div class="progress" id="progress"></div>
     </div>
-    <button class="button" id="continueBtn">CONTINUE TO BOT</button>
+
+    <p id="percent">0%</p>
+
+    <button id="continueBtn">Continue</button>
 </div>
 
 <script>
 let tg = window.Telegram.WebApp;
 tg.expand();
 
-let user = tg.initDataUnsafe?.user;
-let userId = user ? user.id : null;
-
 let progress = document.getElementById("progress");
+let percent = document.getElementById("percent");
 let title = document.getElementById("title");
-let continueBtn = document.getElementById("continueBtn");
+let statusText = document.getElementById("status");
+let btn = document.getElementById("continueBtn");
 
-if(!userId){
-    title.innerText = "User not detected!";
-}else{
-    verifyUser();
-}
+let steps = [
+    "Connecting to server...",
+    "Checking IP address...",
+    "Securing session...",
+    "Finalizing verification..."
+];
 
-async function verifyUser(){
+let value = 0;
+let stepIndex = 0;
 
-    let value = 0;
-    let loader = setInterval(()=>{
-        value += 10;
-        progress.style.width = value + "%";
-    },200);
+let interval = setInterval(()=>{
+    value += 5;
+    progress.style.width = value + "%";
+    percent.innerText = value + "%";
 
-    let response = await fetch("/api/verify", {
+    if(value % 25 === 0 && stepIndex < steps.length){
+        statusText.innerText = steps[stepIndex];
+        stepIndex++;
+    }
+
+    if(value >= 100){
+        clearInterval(interval);
+        verifyBackend();
+    }
+},150);
+
+async function verifyBackend(){
+
+    const response = await fetch("/api/verify",{
         method:"POST",
         headers:{
             "Content-Type":"application/json"
         },
         body: JSON.stringify({
-            user_id: userId
+            initData: tg.initData
         })
     });
 
-    clearInterval(loader);
-
-    let data = await response.json();
-
-    progress.style.width = "100%";
+    const data = await response.json();
 
     if(data.status === "verified"){
-        title.innerText = "Verified Successfully";
+        title.innerText = "✅ Verified Successfully";
+        statusText.innerText = "Your device is secured.";
+        btn.style.display = "block";
+        tg.sendData("verified");
+    } else {
+        title.innerText = "❌ Verification Failed";
+        statusText.innerText = "Security validation failed.";
     }
-    else if(data.status === "already_verified"){
-        title.innerText = "Already Verified";
-    }
-    else{
-        title.innerText = "Verification Failed";
-        return;
-    }
-
-    continueBtn.style.display = "block";
 }
 
-continueBtn.onclick = function(){
+btn.onclick = function(){
     tg.close();
 };
 </script>
 
 </body>
-  </html>
+    </html>
