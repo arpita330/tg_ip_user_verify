@@ -2,7 +2,8 @@ import crypto from "crypto";
 
 const BOT_TOKEN = "7369737719:AAEo1Jx0iJa0DFYcVkFnP4s-D-EM7o12NGk";
 
-let verifiedUsers = {}; // Demo storage (memory)
+let usedSignatures = {};
+let verifiedUsers = {};
 
 export default async function handler(req, res) {
 
@@ -12,10 +13,10 @@ export default async function handler(req, res) {
 
     try {
 
-        const { initData } = req.body;
+        const { initData, fingerprint } = req.body;
 
-        if (!initData) {
-            return res.status(400).json({ error: "Missing initData" });
+        if (!initData || !fingerprint) {
+            return res.status(400).json({ error: "Missing Data" });
         }
 
         const params = new URLSearchParams(initData);
@@ -27,7 +28,6 @@ export default async function handler(req, res) {
             .map(([k, v]) => `${k}=${v}`)
             .join("\n");
 
-        // 🔥 Correct Secret Key
         const secretKey = crypto
             .createHmac("sha256", "WebAppData")
             .update(BOT_TOKEN)
@@ -50,24 +50,33 @@ export default async function handler(req, res) {
             req.socket.remoteAddress ||
             "unknown";
 
-        // 🚫 Already verified check
-        if (verifiedUsers[userId]) {
-            return res.status(200).json({
-                status: "already_verified",
-                ip: verifiedUsers[userId].ip
+        // 🔐 CREATE UNIQUE SIGNATURE
+        const signatureRaw =
+            ip +
+            fingerprint.canvas +
+            fingerprint.webgl +
+            fingerprint.screen +
+            fingerprint.timezone +
+            fingerprint.cpu +
+            fingerprint.memory;
+
+        const signature = crypto
+            .createHash("sha256")
+            .update(signatureRaw)
+            .digest("hex");
+
+        // 🚫 MULTI ACCOUNT BLOCK
+        if (usedSignatures[signature] && usedSignatures[signature] !== userId) {
+            return res.status(403).json({
+                status: "multi_account_blocked"
             });
         }
 
-        // ✅ Save new verified user
-        verifiedUsers[userId] = {
-            verified: true,
-            ip: ip,
-            time: Date.now()
-        };
+        usedSignatures[signature] = userId;
+        verifiedUsers[userId] = signature;
 
         return res.status(200).json({
-            status: "verified",
-            ip: ip
+            status: "verified"
         });
 
     } catch (err) {
