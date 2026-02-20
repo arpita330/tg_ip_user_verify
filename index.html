@@ -79,21 +79,21 @@ button{
 <body>
 
 <div class="card">
-    <div class="circle" id="circle">🔍</div>
+    <div class="circle">🔍</div>
     <h2 id="title">Scanning Network</h2>
-    <p id="status">Connecting to secure server...</p>
+    <p id="status">Initializing secure session...</p>
 
     <div class="progress-bar">
         <div class="progress" id="progress"></div>
     </div>
 
     <p id="percent">0%</p>
-
-    <button id="continueBtn">Continue</button>
+    <button id="continueBtn">Continue to Bot</button>
 </div>
 
 <script>
-let tg = window.Telegram.WebApp;
+
+const tg = window.Telegram.WebApp;
 tg.expand();
 
 let progress = document.getElementById("progress");
@@ -102,25 +102,12 @@ let title = document.getElementById("title");
 let statusText = document.getElementById("status");
 let btn = document.getElementById("continueBtn");
 
-let steps = [
-    "Connecting to server...",
-    "Checking IP address...",
-    "Securing session...",
-    "Finalizing verification..."
-];
-
 let value = 0;
-let stepIndex = 0;
 
 let interval = setInterval(()=>{
     value += 5;
     progress.style.width = value + "%";
     percent.innerText = value + "%";
-
-    if(value % 25 === 0 && stepIndex < steps.length){
-        statusText.innerText = steps[stepIndex];
-        stepIndex++;
-    }
 
     if(value >= 100){
         clearInterval(interval);
@@ -129,6 +116,12 @@ let interval = setInterval(()=>{
 },150);
 
 async function verifyBackend(){
+
+    if (!tg.initData) {
+        title.innerText = "❌ Invalid Access";
+        statusText.innerText = "Please open from Telegram.";
+        return;
+    }
 
     const response = await fetch("/api/verify",{
         method:"POST",
@@ -143,20 +136,36 @@ async function verifyBackend(){
     const data = await response.json();
 
     if(data.status === "verified"){
-        title.innerText = "✅ Verified Successfully";
+
+        title.innerText = "✅ Verification Successful";
         statusText.innerText = "Your device is secured.";
         btn.style.display = "block";
-        tg.sendData("verified");
-    } else {
+
+        tg.sendData(JSON.stringify({
+            status: "verified"
+        }));
+
+    } 
+    else if(data.status === "already_verified"){
+
+        title.innerText = "ℹ️ Already Verified";
+        statusText.innerText = "This device is already verified.";
+        btn.style.display = "block";
+
+    } 
+    else {
+
         title.innerText = "❌ Verification Failed";
         statusText.innerText = "Security validation failed.";
+
     }
 }
 
 btn.onclick = function(){
     tg.close();
 };
+
 </script>
 
 </body>
-    </html>
+</html>
