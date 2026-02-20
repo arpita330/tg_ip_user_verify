@@ -1,6 +1,8 @@
 import crypto from "crypto";
 
-const BOT_TOKEN = "7369737719:AAEo1Jx0iJa0DFYcVkFnP4s-D-EM7o12NGk"; // keep secret in env later
+const BOT_TOKEN = "7369737719:AAEo1Jx0iJa0DFYcVkFnP4s-D-EM7o12NGk";
+
+let verifiedUsers = {}; // Demo storage (memory)
 
 export default async function handler(req, res) {
 
@@ -9,6 +11,7 @@ export default async function handler(req, res) {
     }
 
     try {
+
         const { initData } = req.body;
 
         if (!initData) {
@@ -24,7 +27,7 @@ export default async function handler(req, res) {
             .map(([k, v]) => `${k}=${v}`)
             .join("\n");
 
-        // 🔥 CORRECT SECRET KEY
+        // 🔥 Correct Secret Key
         const secretKey = crypto
             .createHmac("sha256", "WebAppData")
             .update(BOT_TOKEN)
@@ -40,19 +43,34 @@ export default async function handler(req, res) {
         }
 
         const user = JSON.parse(params.get("user"));
+        const userId = user.id;
 
         const ip =
             req.headers["x-forwarded-for"]?.split(",")[0] ||
             req.socket.remoteAddress ||
             "unknown";
 
+        // 🚫 Already verified check
+        if (verifiedUsers[userId]) {
+            return res.status(200).json({
+                status: "already_verified",
+                ip: verifiedUsers[userId].ip
+            });
+        }
+
+        // ✅ Save new verified user
+        verifiedUsers[userId] = {
+            verified: true,
+            ip: ip,
+            time: Date.now()
+        };
+
         return res.status(200).json({
             status: "verified",
-            user_id: user.id,
             ip: ip
         });
 
     } catch (err) {
         return res.status(500).json({ error: "Server Error" });
     }
-}
+            }
