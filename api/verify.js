@@ -1,6 +1,6 @@
 import crypto from "crypto";
 
-const BOT_TOKEN = "7369737719:AAEo1Jx0iJa0DFYcVkFnP4s-D-EM7o12NGk";
+const BOT_TOKEN = "7369737719:AAEo1Jx0iJa0DFYcVkFnP4s-D-EM7o12NGk"; // keep secret in env later
 
 export default async function handler(req, res) {
 
@@ -24,11 +24,14 @@ export default async function handler(req, res) {
             .map(([k, v]) => `${k}=${v}`)
             .join("\n");
 
-        const secret = crypto.createHash("sha256")
+        // 🔥 CORRECT SECRET KEY
+        const secretKey = crypto
+            .createHmac("sha256", "WebAppData")
             .update(BOT_TOKEN)
             .digest();
 
-        const hmac = crypto.createHmac("sha256", secret)
+        const hmac = crypto
+            .createHmac("sha256", secretKey)
             .update(dataCheckString)
             .digest("hex");
 
@@ -37,19 +40,19 @@ export default async function handler(req, res) {
         }
 
         const user = JSON.parse(params.get("user"));
-        const userId = user.id;
 
         const ip =
-            req.headers["x-forwarded-for"] ||
+            req.headers["x-forwarded-for"]?.split(",")[0] ||
             req.socket.remoteAddress ||
             "unknown";
 
         return res.status(200).json({
             status: "verified",
+            user_id: user.id,
             ip: ip
         });
 
     } catch (err) {
         return res.status(500).json({ error: "Server Error" });
     }
-                                }
+}
