@@ -1,41 +1,55 @@
+import crypto from "crypto";
+
+const BOT_TOKEN = "7369737719:AAEo1Jx0iJa0DFYcVkFnP4s-D-EM7o12NGk";
+
 export default async function handler(req, res) {
 
     if (req.method !== "POST") {
-        return res.status(405).json({ status: "error", message: "Method Not Allowed" });
+        return res.status(405).json({ error: "Method Not Allowed" });
     }
 
     try {
-        const { user_id } = req.body;
+        const { initData } = req.body;
 
-        if (!user_id) {
-            return res.status(400).json({ status: "error", message: "User ID missing" });
+        if (!initData) {
+            return res.status(400).json({ error: "Missing initData" });
         }
+
+        const params = new URLSearchParams(initData);
+        const hash = params.get("hash");
+        params.delete("hash");
+
+        const dataCheckString = [...params.entries()]
+            .sort()
+            .map(([k, v]) => `${k}=${v}`)
+            .join("\n");
+
+        const secret = crypto.createHash("sha256")
+            .update(BOT_TOKEN)
+            .digest();
+
+        const hmac = crypto.createHmac("sha256", secret)
+            .update(dataCheckString)
+            .digest("hex");
+
+        if (hmac !== hash) {
+            return res.status(403).json({ error: "Invalid Telegram Data" });
+        }
+
+        const user = JSON.parse(params.get("user"));
+        const userId = user.id;
 
         const ip =
             req.headers["x-forwarded-for"] ||
             req.socket.remoteAddress ||
             "unknown";
 
-        global.verifiedUsers = global.verifiedUsers || {};
-
-        if (global.verifiedUsers[user_id]) {
-            return res.status(200).json({
-                status: "already_verified",
-                ip: ip
-            });
-        }
-
-        global.verifiedUsers[user_id] = {
-            ip: ip,
-            time: new Date().toISOString()
-        };
-
         return res.status(200).json({
             status: "verified",
             ip: ip
         });
 
-    } catch (error) {
-        return res.status(500).json({ status: "error", message: "Server Error" });
+    } catch (err) {
+        return res.status(500).json({ error: "Server Error" });
     }
-              }
+                                }
