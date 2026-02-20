@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Network Verification</title>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial;
+    background:#0b1226;
+    color:white;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+.card{
+    width:90%;
+    max-width:400px;
+    background:#111b3a;
+    padding:30px;
+    border-radius:20px;
+    text-align:center;
+}
+.progress{
+    height:6px;
+    background:#2e5bff;
+    width:0%;
+    margin-top:20px;
+    transition:0.4s;
+}
+.button{
+    margin-top:25px;
+    padding:12px;
+    background:#2e5bff;
+    border:none;
+    border-radius:10px;
+    color:white;
+    width:100%;
+    display:none;
+}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+    <h2 id="title">Verifying Network...</h2>
+    <div style="background:#222;height:6px;border-radius:5px;">
+        <div class="progress" id="progress"></div>
+    </div>
+    <button class="button" id="continueBtn">CONTINUE TO BOT</button>
+</div>
+
+<script>
+let tg = window.Telegram.WebApp;
+tg.expand();
+
+let user = tg.initDataUnsafe?.user;
+let userId = user ? user.id : null;
+
+let progress = document.getElementById("progress");
+let title = document.getElementById("title");
+let continueBtn = document.getElementById("continueBtn");
+
+if(!userId){
+    title.innerText = "User not detected!";
+}else{
+    verifyUser();
+}
+
+async function verifyUser(){
+
+    let value = 0;
+    let loader = setInterval(()=>{
+        value += 10;
+        progress.style.width = value + "%";
+    },200);
+
+    let response = await fetch("/api/verify", {
+        method:"POST",
+        headers:{
+            "Content-Type":"application/json"
+        },
+        body: JSON.stringify({
+            user_id: userId
+        })
+    });
+
+    clearInterval(loader);
+
+    let data = await response.json();
+
+    progress.style.width = "100%";
+
+    if(data.status === "verified"){
+        title.innerText = "Verified Successfully";
+    }
+    else if(data.status === "already_verified"){
+        title.innerText = "Already Verified";
+    }
+    else{
+        title.innerText = "Verification Failed";
+        return;
+    }
+
+    continueBtn.style.display = "block";
+}
+
+continueBtn.onclick = function(){
+    tg.close();
+};
+</script>
+
+</body>
+  </html>
